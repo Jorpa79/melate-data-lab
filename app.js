@@ -29,7 +29,7 @@ async function loadHistory(){try{const r=await api('draws',{from:$('hist-from').
 async function loadAnalytics(){try{analyticsCache=await api('analytics',{window:Number($('freq-window')?.value||0)});const f=analyticsCache.frequencies.slice().sort((a,b)=>a.number-b.number);$('freq-bars').innerHTML=f.map(x=>`<div class="freq-cell"><b>${x.number}</b><small>${x.count}</small></div>`).join('');$('freq-table').innerHTML=analyticsCache.frequencies.map(x=>`<tr><td>${x.number}</td><td>${x.count}</td><td>${x.expected.toFixed(1)}</td><td>${x.pct.toFixed(2)}%</td><td>${x.z.toFixed(2)}</td></tr>`).join('');const d=analyticsCache.distribution;$('sum-mean').textContent=d.sumMean.toFixed(2);$('sum-median').textContent=d.sumMedian;$('sum-min').textContent=d.sumMin;$('sum-max').textContent=d.sumMax;simpleBars('even-bars',d.evens.map((v,i)=>({label:i+' pares',count:v})));simpleBars('range-bars',Object.entries(d.ranges).map(([label,count])=>({label,count})));}catch(e){toast(e.message,true);}}
 function simpleBars(id,items){const max=Math.max(1,...items.map(x=>x.count));$(id).innerHTML=items.map(x=>`<div class="simple-row"><span>${x.label}</span><div class="bar-track"><div class="bar-fill" style="width:${x.count/max*100}%"></div></div><b>${x.count}</b></div>`).join('');}
 async function loadRelations(){try{const r=analyticsCache||await api('analytics');analyticsCache=r;const key=$('relation-type').value,items=key==='pairs'?r.topPairs:r.topTriples;$('relations-table').innerHTML=items.map(x=>`<tr><td>${x.group}</td><td>${x.count}</td><td>${x.expected.toFixed(2)}</td><td>${x.ratio.toFixed(2)}×</td></tr>`).join('');}catch(e){toast(e.message,true);}}
-async function generate(){try{const r=await api('generate',{quantity:$('gen-quantity').value,strategy:$('gen-strategy').value,window:$('gen-window').value,seed:$('gen-seed').value});lastGeneration=r;$('generated').innerHTML=r.combinations.map((x,i)=>`<div class="combo-card"><div class="combo-head"><span>COMBINACIÓN ${i+1}</span><b>Score ${x.score}</b></div><div class="combo-balls">${x.numbers.map(n=>`<span class="ball">${n}</span>`).join('')}</div><small>Frecuencia ${x.components.frequency} · Paridad ${x.components.parity} · Dispersión ${x.components.spread}</small></div>`).join('')+`<button id="save-gen" class="primary">Guardar generación</button><p class="muted">Huella reproducible: <b>${r.fingerprint||'No disponible'}</b> · PRNG: ${r.rngAlgorithm||'No informado'}</p><p class="muted">${r.caveat}</p>`;$('save-gen').onclick=async()=>{try{const s=await api('saveGeneration',{strategy:r.strategy,window:r.window,seed:r.seed,quantity:r.quantity,result:r});toast('Generación guardada. ID: '+s.id);}catch(e){toast(e.message,true);}};}catch(e){toast(e.message,true);}}
+async function generate(){try{const r=await api('generate',{quantity:$('gen-quantity').value,strategy:$('gen-strategy').value,window:$('gen-window').value,seed:$('gen-seed').value});lastGeneration=r;$('generated').innerHTML=r.combinations.map((x,i)=>`<div class="combo-card"><div class="combo-head"><span>COMBINACIÓN ${i+1}</span><b>Score ${x.score}</b></div><div class="combo-balls">${x.numbers.map(n=>`<span class="ball">${n}</span>`).join('')}</div><small>Frecuencia ${x.components.frequency} · Paridad ${x.components.parity} · Dispersión ${x.components.spread}</small></div>`).join('')+`<button id="save-gen" class="primary">Guardar generación</button><p class="muted">${r.caveat}</p>`;$('save-gen').onclick=async()=>{try{const s=await api('saveGeneration',{strategy:r.strategy,window:r.window,seed:r.seed,quantity:r.quantity,result:r});toast('Generación guardada. ID: '+s.id);}catch(e){toast(e.message,true);}};}catch(e){toast(e.message,true);}}
 async function loadGenerations(){
   try{
     const r=await api('getGenerations',{limit:50});
@@ -45,7 +45,62 @@ async function loadGenerations(){
   }catch(e){toast(e.message,true);}
 }
 async function simulate(){try{const r=await api('simulate',{count:$('sim-count').value,seed:$('sim-seed').value});const top=r.frequencies.slice().sort((a,b)=>b.count-a.count).slice(0,10);$('simulation-result').innerHTML=`<div class="kpis"><article class="panel"><label>Sorteos simulados</label><strong>${r.count.toLocaleString()}</strong></article><article class="panel"><label>Esperado por número</label><strong>${r.expectedPerNumber.toFixed(2)}</strong></article><article class="panel"><label>Aciertos esperados</label><strong>${r.expectedHits.toFixed(4)}</strong></article><article class="panel"><label>Apariciones observadas / esperadas</label><strong>${r.observedAppearances.toLocaleString()} / ${r.totalAppearances.toLocaleString()}</strong><small>${r.appearanceCheck?'Integridad correcta':'Revisar total de apariciones'}</small></article></div><h3>Mayores conteos simulados</h3><div class="number-bars">${top.map(x=>`<div class="bar-row"><b>${x.number}</b><div class="bar-track"><div class="bar-fill" style="width:${x.count/Math.max(...top.map(y=>y.count))*100}%"></div></div><span>${x.count}</span></div>`).join('')}</div>`;}catch(e){toast(e.message,true);}}
-async function backtest(){try{const r=await api('backtest',{tests:$('bt-tests').value,window:$('bt-window').value,seed:$('bt-seed').value});$('backtest-result').innerHTML=`<div class="kpis"><article class="panel"><label>Pruebas</label><strong>${r.tests}</strong></article><article class="panel"><label>Media modelo</label><strong>${r.modelMean.toFixed(4)}</strong></article><article class="panel"><label>Media aleatoria</label><strong>${r.randomMean.toFixed(4)}</strong></article><article class="panel"><label>Diferencia media</label><strong>${r.meanDifference.toFixed(4)}</strong></article></div><p>IC aproximado 95%: ${r.ci95.map(x=>x.toFixed(4)).join(' a ')}</p><div class="notice">${r.warning}</div><div class="tablewrap"><table><thead><tr><th>Concurso</th><th>Aciertos modelo</th><th>Aciertos aleatorio</th></tr></thead><tbody>${r.rows.slice(-30).map(x=>`<tr><td>${x.contest}</td><td>${x.modelHits}</td><td>${x.randomHits}</td></tr>`).join('')}</tbody></table></div>`;}catch(e){toast(e.message,true);}}
+async function backtest(){
+  try {
+    const r = await api('backtest', {
+      tests: $('bt-tests').value,
+      window: $('bt-window').value,
+      seed: $('bt-seed').value
+    });
+
+    const ciRaw = r.ci95;
+    let ci = null;
+
+    if (Array.isArray(ciRaw) && ciRaw.length >= 2) {
+      ci = [Number(ciRaw[0]), Number(ciRaw[1])];
+    } else if (ciRaw && typeof ciRaw === 'object') {
+      ci = [Number(ciRaw.low), Number(ciRaw.high)];
+    } else if (r.strategyStats && r.strategyStats.hybrid &&
+               r.strategyStats.hybrid.ci95) {
+      const hybridCI = r.strategyStats.hybrid.ci95;
+      ci = [Number(hybridCI.low), Number(hybridCI.high)];
+    }
+
+    const validCI = ci && ci.length === 2 && ci.every(Number.isFinite);
+    const ciText = validCI
+      ? `${ci[0].toFixed(4)} a ${ci[1].toFixed(4)}`
+      : 'No disponible';
+
+    const rows = Array.isArray(r.rows) ? r.rows : [];
+    const modelMean = Number(r.modelMean);
+    const randomMean = Number(r.randomMean);
+    const meanDifference = Number(r.meanDifference);
+
+    $('backtest-result').innerHTML = `
+      <div class="kpis">
+        <article class="panel"><label>Pruebas</label><strong>${Number(r.tests || rows.length).toLocaleString('es-MX')}</strong></article>
+        <article class="panel"><label>Media modelo (híbrido)</label><strong>${Number.isFinite(modelMean) ? modelMean.toFixed(4) : '—'}</strong></article>
+        <article class="panel"><label>Media aleatoria</label><strong>${Number.isFinite(randomMean) ? randomMean.toFixed(4) : '—'}</strong></article>
+        <article class="panel"><label>Diferencia media</label><strong>${Number.isFinite(meanDifference) ? meanDifference.toFixed(4) : '—'}</strong></article>
+      </div>
+      <p>IC aproximado 95% de la diferencia: ${ciText}</p>
+      <div class="notice">${r.warning || 'Evaluación walk-forward completada.'}</div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Concurso</th><th>Aciertos modelo</th><th>Aciertos aleatorio</th></tr></thead>
+          <tbody>${rows.slice(-30).map(x => `
+            <tr>
+              <td>${x.contest ?? '—'}</td>
+              <td>${x.modelHits ?? x.hybridHits ?? '—'}</td>
+              <td>${x.randomHits ?? '—'}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  } catch(e) {
+    toast(e.message, true);
+  }
+}
 async function runML(){
   const base=$('ml-url').value.trim().replace(/\/$/,'');
   try{
