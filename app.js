@@ -53,50 +53,64 @@ async function backtest(){
       seed: $('bt-seed').value
     });
 
-    const ciRaw = r.ci95;
-    let ci = null;
-
-    if (Array.isArray(ciRaw) && ciRaw.length >= 2) {
-      ci = [Number(ciRaw[0]), Number(ciRaw[1])];
-    } else if (ciRaw && typeof ciRaw === 'object') {
-      ci = [Number(ciRaw.low), Number(ciRaw.high)];
-    } else if (r.strategyStats && r.strategyStats.hybrid &&
-               r.strategyStats.hybrid.ci95) {
-      const hybridCI = r.strategyStats.hybrid.ci95;
-      ci = [Number(hybridCI.low), Number(hybridCI.high)];
-    }
-
-    const validCI = ci && ci.length === 2 && ci.every(Number.isFinite);
-    const ciText = validCI
-      ? `${ci[0].toFixed(4)} a ${ci[1].toFixed(4)}`
-      : 'No disponible';
-
     const rows = Array.isArray(r.rows) ? r.rows : [];
-    const modelMean = Number(r.modelMean);
-    const randomMean = Number(r.randomMean);
-    const meanDifference = Number(r.meanDifference);
+    const stats = r.strategyStats || {};
+    const names = [
+      ['random','Aleatorio uniforme'],
+      ['frequency','Frecuencia ponderada'],
+      ['balanced','Balanceado'],
+      ['hybrid','Híbrido experimental']
+    ];
+    const fmt = value => Number.isFinite(Number(value)) ? Number(value).toFixed(4) : '—';
+    const ciText = ci => {
+      if (Array.isArray(ci) && ci.length >= 2) return `${fmt(ci[0])} a ${fmt(ci[1])}`;
+      if (ci && Number.isFinite(Number(ci.low)) && Number.isFinite(Number(ci.high))) return `${fmt(ci.low)} a ${fmt(ci.high)}`;
+      return 'No disponible';
+    };
+    const strategyRows = names.map(([key,label]) => {
+      const s = stats[key] || {};
+      const diff = Number(s.difference);
+      const status = key === 'random' ? 'Control' :
+        (Number.isFinite(diff) && diff > 0 ? 'Mayor promedio observado' :
+        (Number.isFinite(diff) && diff < 0 ? 'Menor promedio observado' : 'Sin diferencia observada'));
+      return `<tr><td>${label}</td><td>${fmt(s.mean)}</td><td>${fmt(s.difference)}</td><td>${ciText(s.ci95)}</td><td>${(s.distribution||[]).map((n,i)=>`${i}:${n??0}`).join(' · ')}</td><td>${status}</td></tr>`;
+    }).join('');
+
+    const hybrid = stats.hybrid || {};
+    const random = stats.random || {};
+    const modelMean = Number(hybrid.mean ?? r.modelMean);
+    const randomMean = Number(random.mean ?? r.randomMean);
+    const meanDifference = Number(hybrid.difference ?? r.meanDifference);
+    const hybridCI = ciText(hybrid.ci95 || r.ci95);
+
+    const detailRows = rows.slice(-30).map(x => `
+      <tr>
+        <td>${x.contest ?? '—'}</td>
+        <td>${x.randomHits ?? '—'}</td>
+        <td>${x.frequencyHits ?? '—'}</td>
+        <td>${x.balancedHits ?? '—'}</td>
+        <td>${x.hybridHits ?? x.modelHits ?? '—'}</td>
+      </tr>`).join('');
 
     $('backtest-result').innerHTML = `
       <div class="kpis">
         <article class="panel"><label>Pruebas</label><strong>${Number(r.tests || rows.length).toLocaleString('es-MX')}</strong></article>
-        <article class="panel"><label>Media modelo (híbrido)</label><strong>${Number.isFinite(modelMean) ? modelMean.toFixed(4) : '—'}</strong></article>
-        <article class="panel"><label>Media aleatoria</label><strong>${Number.isFinite(randomMean) ? randomMean.toFixed(4) : '—'}</strong></article>
-        <article class="panel"><label>Diferencia media</label><strong>${Number.isFinite(meanDifference) ? meanDifference.toFixed(4) : '—'}</strong></article>
+        <article class="panel"><label>Media modelo (híbrido)</label><strong>${fmt(modelMean)}</strong></article>
+        <article class="panel"><label>Media aleatoria</label><strong>${fmt(randomMean)}</strong></article>
+        <article class="panel"><label>Diferencia híbrido vs. aleatorio</label><strong>${fmt(meanDifference)}</strong></article>
       </div>
-      <p>IC aproximado 95% de la diferencia: ${ciText}</p>
-      <div class="notice">${r.warning || 'Evaluación walk-forward completada.'}</div>
-      <div class="tablewrap">
-        <table>
-          <thead><tr><th>Concurso</th><th>Aciertos modelo</th><th>Aciertos aleatorio</th></tr></thead>
-          <tbody>${rows.slice(-30).map(x => `
-            <tr>
-              <td>${x.contest ?? '—'}</td>
-              <td>${x.modelHits ?? x.hybridHits ?? '—'}</td>
-              <td>${x.randomHits ?? '—'}</td>
-            </tr>`).join('')}
-          </tbody>
-        </table>
-      </div>`;
+      <p>IC aproximado 95% de la diferencia híbrida: ${hybridCI}</p>
+      <div class="notice">${r.warning || 'Evaluación walk-forward completada.'} Presupuesto de candidatos por familia: ${r.candidateBudget ?? '—'}.</div>
+      <h3>Comparación de las cuatro estrategias</h3>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Estrategia</th><th>Media aciertos</th><th>Diferencia vs. aleatorio</th><th>IC 95% diferencia</th><th>Distribución (aciertos: sorteos)</th><th>Lectura</th></tr></thead>
+        <tbody>${strategyRows || '<tr><td colspan="6">El backend no devolvió strategyStats. Publica la versión 2.2.0 del Apps Script.</td></tr>'}</tbody>
+      </table></div>
+      <h3>Últimos 30 concursos evaluados</h3>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Concurso</th><th>Aleatorio</th><th>Frecuencia</th><th>Balanceado</th><th>Híbrido</th></tr></thead>
+        <tbody>${detailRows}</tbody>
+      </table></div>`;
   } catch(e) {
     toast(e.message, true);
   }
