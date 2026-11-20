@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101827"><title>MELATE DATA LAB</title>
+<link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="login" class="login-wrap">
+  <div class="login-card"><div class="brandmark">M</div><p class="eyebrow">LABORATORIO DE CIENCIA DE DATOS</p>
+  <h1>MELATE <span>DATA LAB</span></h1><p class="muted">Análisis estadístico · Simulación · Evaluación experimental</p>
+  <label>Usuario<input id="login-user" autocomplete="username"></label>
+  <label>Contraseña<input id="login-pass" type="password" autocomplete="current-password"></label>
+  <button id="login-btn" class="primary full">Iniciar sesión</button><div id="login-error" class="error"></div>
+  <small>El administrador debe configurar el backend antes del primer acceso.</small></div>
+</div>
+<div id="app" class="app hidden">
+<aside class="sidebar"><div class="brand"><div class="brandmark">M</div><div><b>MELATE</b><small>DATA LAB</small></div></div>
+<nav id="nav">
+<button class="nav active" data-view="dashboard">▦ <span>Dashboard</span></button>
+<button class="nav" data-view="historico">▤ <span>Histórico</span></button>
+<button class="nav" data-view="frecuencias">▥ <span>Frecuencias</span></button>
+<button class="nav" data-view="relaciones">⌘ <span>Parejas y ternas</span></button>
+<button class="nav" data-view="distribuciones">◷ <span>Distribuciones</span></button>
+<button class="nav" data-view="generador">✦ <span>Generador</span></button>
+<button class="nav" data-view="montecarlo">◎ <span>Monte Carlo</span></button>
+<button class="nav" data-view="backtesting">✓ <span>Backtesting</span></button>
+<button class="nav" data-view="ml">⌁ <span>ML experimental</span></button>
+<button class="nav" data-view="seguimiento">◉ <span>Seguimiento</span></button>
+<button class="nav" data-view="administracion" data-admin="1">⚙ <span>Administración</span></button>
+</nav><div class="sidefoot">MELATE DATA LAB · V2.0.0<br><span>La estadística no predice sorteos.</span></div></aside>
+<main class="main"><header class="topbar"><div><div class="eyebrow">LABORATORIO DE CIENCIA DE DATOS</div><h1 id="page-title">Dashboard</h1></div>
+<div class="top-actions"><span class="connection"><i></i><span id="connection-label">Conectado</span></span><span id="user-label"></span><button id="change-password" class="ghost">Cambiar contraseña</button><button id="logout" class="ghost">Salir</button></div></header>
+<div id="toast" class="toast hidden"></div>
+<section id="view-dashboard" class="view">
+<div class="kpis">
+<article class="panel"><label>Sorteos cargados</label><strong id="k-total">—</strong><small>Histórico completo</small></article>
+<article class="panel"><label>Cohorte 1–56</label><strong id="k-cohort">—</strong><small>Desde concurso 2089</small></article>
+<article class="panel"><label>Último concurso</label><strong id="k-latest">—</strong><small id="k-date">—</small></article>
+<article class="panel"><label>Esperado por número</label><strong id="k-expected">—</strong><small>Modelo uniforme</small></article>
+</div>
+<div class="grid2"><article class="panel"><div class="panelhead"><div><h2>Más frecuentes</h2><p>Conteos en la cohorte actual</p></div></div><div id="dash-top" class="number-bars"></div></article>
+<article class="panel"><div class="panelhead"><div><h2>Menos frecuentes</h2><p>Conteos en la cohorte actual</p></div></div><div id="dash-bottom" class="number-bars"></div></article></div>
+<article class="panel"><div class="panelhead"><div><h2>Sorteos recientes</h2><p>Seis números principales y adicional</p></div><button class="ghost" data-export="draws">Exportar CSV</button></div><div class="tablewrap"><table><thead><tr><th>Concurso</th><th>Fecha</th><th>Números</th><th>Adicional</th><th>Bolsa</th></tr></thead><tbody id="dash-recent"></tbody></table></div></article>
+<div class="notice">Universo matemático actual: 6 números distintos de 1 a 56. Hay 32,468,436 combinaciones posibles. Cada combinación exacta tiene probabilidad teórica 1 entre 32,468,436, bajo el supuesto de sorteo justo.</div>
+</section>
+<section id="view-historico" class="view hidden"><article class="panel"><div class="panelhead"><div><h2>Histórico de sorteos</h2><p>Consulta por rango de concursos. El archivo original se conserva en /data.</p></div><div class="controls"><input id="hist-from" placeholder="Desde concurso"><input id="hist-to" placeholder="Hasta"><button id="hist-load" class="primary">Consultar</button></div></div><div class="tablewrap"><table><thead><tr><th>Concurso</th><th>Fecha</th><th>Combinación</th><th>Adicional</th><th>Bolsa</th></tr></thead><tbody id="history-table"></tbody></table></div></article></section>
+<section id="view-frecuencias" class="view hidden"><article class="panel"><div class="panelhead"><div><h2>Frecuencia por número</h2><p>Observado frente al esperado bajo uniformidad</p></div><select id="freq-window"><option value="0">Toda la cohorte</option><option>25</option><option>50</option><option>100</option><option>200</option><option>500</option></select></div><div id="freq-bars" class="frequency-grid"></div><div class="tablewrap"><table><thead><tr><th>Número</th><th>Apariciones</th><th>Esperadas</th><th>% sorteos</th><th>Z descriptivo</th></tr></thead><tbody id="freq-table"></tbody></table></div><button class="ghost" data-export="frequency">Descargar frecuencias CSV</button></article></section>
+<section id="view-relaciones" class="view hidden"><article class="panel"><div class="panelhead"><div><h2>Coincidencias históricas</h2><p>Asociaciones observadas dentro del mismo sorteo</p></div><select id="relation-type"><option value="pairs">Parejas</option><option value="triples">Ternas</option></select></div><div class="tablewrap"><table><thead><tr><th>Grupo</th><th>Apariciones</th><th>Esperadas</th><th>Observado / esperado</th></tr></thead><tbody id="relations-table"></tbody></table></div><p class="muted">Al explorar miles de parejas y ternas, algunas destacan por azar. No implica dependencia ni ventaja futura.</p></article></section>
+<section id="view-distribuciones" class="view hidden"><div class="kpis"><article class="panel"><label>Suma promedio</label><strong id="sum-mean">—</strong></article><article class="panel"><label>Mediana</label><strong id="sum-median">—</strong></article><article class="panel"><label>Suma mínima</label><strong id="sum-min">—</strong></article><article class="panel"><label>Suma máxima</label><strong id="sum-max">—</strong></article></div><div class="grid2"><article class="panel"><h2>Distribución de pares</h2><div id="even-bars" class="simple-bars"></div></article><article class="panel"><h2>Distribución por rangos</h2><div id="range-bars" class="simple-bars"></div></article></div></section>
+<section id="view-generador" class="view hidden"><article class="panel"><h2>Generador experimental</h2><p>Genera combinaciones reproducibles con distintas estrategias.</p><div class="formgrid">
+<label>Cantidad<select id="gen-quantity"><option>5</option><option selected>10</option><option>20</option><option>50</option><option>100</option></select></label>
+<label>Estrategia<select id="gen-strategy"><option value="random">Aleatorio uniforme</option><option value="frequency">Frecuencia ponderada</option><option value="balanced">Balanceado</option><option value="hybrid" selected>Híbrido experimental</option></select></label>
+<label>Ventana histórica<select id="gen-window"><option>25</option><option>50</option><option selected>100</option><option>200</option><option>500</option></select></label>
+<label>Semilla<input id="gen-seed" type="number" value="20261120"></label></div>
+<button id="generate" class="primary">Generar combinaciones</button> <button id="generations-load" class="ghost">Ver generaciones guardadas</button><div id="generated" class="combination-list"></div><div id="saved-generations"></div>
+<div class="notice">La estrategia y el score sirven para comparar perfiles. No incrementan la probabilidad matemática de acertar.</div></article></section>
+<section id="view-montecarlo" class="view hidden"><article class="panel"><h2>Simulación Monte Carlo</h2><p>Simula sorteos independientes con seis números sin reemplazo.</p><div class="formgrid"><label>Simulaciones<select id="sim-count"><option>1000</option><option selected>10000</option><option>25000</option><option>50000</option><option>100000</option></select></label><label>Semilla<input id="sim-seed" type="number" value="20261120"></label></div><button id="simulate" class="primary">Ejecutar simulación</button><div id="simulation-result"></div></article></section>
+<section id="view-backtesting" class="view hidden"><article class="panel"><h2>Backtesting walk-forward</h2><p>El modelo utiliza solo sorteos anteriores al objetivo. Compara selección por frecuencia contra selección aleatoria.</p><div class="formgrid"><label>Sorteos de prueba<input id="bt-tests" type="number" min="10" max="300" value="100"></label><label>Ventana entrenamiento<input id="bt-window" type="number" min="20" max="1000" value="100"></label><label>Semilla<input id="bt-seed" type="number" value="20261120"></label></div><button id="backtest" class="primary">Ejecutar evaluación</button><div id="backtest-result"></div></article></section>
+<section id="view-ml" class="view hidden"><article class="panel"><h2>Benchmark de aprendizaje automático</h2><p>Conecta el motor científico Python opcional. Este benchmark usa Random Forest multi-salida y validación walk-forward; no es un predictor de sorteos.</p><div class="formgrid"><label>URL motor ML<input id="ml-url" value="http://127.0.0.1:8000"></label><label>Sorteos de prueba<input id="ml-tests" type="number" min="20" max="500" value="30"></label><label>Ventana de entrenamiento<input id="ml-window" type="number" min="20" max="1000" value="100"></label><label>Semilla<input id="ml-seed" type="number" value="20261120"></label></div><button id="ml-run" class="primary">Ejecutar benchmark ML</button><div id="ml-result"></div><div class="notice">Antes de ejecutar, inicia el servicio Python y carga el histórico con el endpoint /load. Consulta docs/INSTALACION.md.</div></article></section>
+<section id="view-seguimiento" class="view hidden"><article class="panel"><h2>Seguimiento de combinaciones</h2><p>Registra un sorteo posterior y evalúa las combinaciones guardadas.</p><div class="formgrid"><label>Concurso<input id="follow-contest" type="number"></label><label>Fecha<input id="follow-date" type="date"></label><label>Números (separados por coma)<input id="follow-numbers" placeholder="2, 16, 21, 43, 44, 49"></label><label>ID de generación (opcional)<input id="follow-generation" placeholder="ID guardado"></label></div><label>Notas<input id="follow-notes" placeholder="Observaciones"></label><button id="follow-save" class="primary">Guardar seguimiento</button><div id="follow-list" class="tablewrap"></div></article></section>
+<section id="view-administracion" class="view hidden"><div class="grid2"><article class="panel"><h2>Importar histórico CSV</h2><p>Selecciona Melate.csv. Se validan filas, números y duplicados por concurso.</p><input type="file" id="csv-file" accept=".csv,text/csv"><button id="csv-import" class="primary">Importar archivo</button><div id="import-result"></div></article>
+<article class="panel"><h2>Crear usuario</h2><div class="formgrid"><label>Usuario<input id="new-username"></label><label>Nombre<input id="new-name"></label><label>Rol<select id="new-role"><option value="ANALYST">Analista</option><option value="ADMIN">Administrador</option></select></label><label>Contraseña temporal<input id="new-password" type="password"></label></div><button id="user-create" class="primary">Crear usuario</button></article></div>
+<article class="panel"><div class="panelhead"><h2>Usuarios</h2><button id="users-refresh" class="ghost">Actualizar</button></div><div class="tablewrap"><table><thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Estado</th><th>Acción</th></tr></thead><tbody id="users-table"></tbody></table></div></article>
+<article class="panel"><h2>Bitácora</h2><button id="audit-refresh" class="ghost">Consultar</button><div id="audit-list" class="tablewrap"></div></article></section>
+<footer>MELATE DATA LAB V2.0.0 · Histórico proporcionado por el usuario · No es un sistema de predicción de resultados.</footer>
+</main></div>
+<script src="config.js"></script><script src="app.js"></script>
+</body></html>
