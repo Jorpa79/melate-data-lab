@@ -46,6 +46,8 @@ async function loadGenerations(){
 }
 async function simulate(){try{const r=await api('simulate',{count:$('sim-count').value,seed:$('sim-seed').value});const top=r.frequencies.slice().sort((a,b)=>b.count-a.count).slice(0,10);$('simulation-result').innerHTML=`<div class="kpis"><article class="panel"><label>Sorteos simulados</label><strong>${r.count.toLocaleString()}</strong></article><article class="panel"><label>Esperado por número</label><strong>${r.expectedPerNumber.toFixed(2)}</strong></article><article class="panel"><label>Aciertos esperados</label><strong>${r.expectedHits.toFixed(4)}</strong></article><article class="panel"><label>Apariciones observadas / esperadas</label><strong>${r.observedAppearances.toLocaleString()} / ${r.totalAppearances.toLocaleString()}</strong><small>${r.appearanceCheck?'Integridad correcta':'Revisar total de apariciones'}</small></article></div><h3>Mayores conteos simulados</h3><div class="number-bars">${top.map(x=>`<div class="bar-row"><b>${x.number}</b><div class="bar-track"><div class="bar-fill" style="width:${x.count/Math.max(...top.map(y=>y.count))*100}%"></div></div><span>${x.count}</span></div>`).join('')}</div>`;}catch(e){toast(e.message,true);}}
 async function backtest(){
+  const btn=$('backtest'), oldText=btn.textContent; btn.disabled=true; btn.textContent='Evaluando…';
+  $('backtest-result').innerHTML='<div class="notice">Evaluación en proceso. Espera a que el servidor termine; no es necesario presionar el botón otra vez.</div>';
   try {
     const r = await api('backtest', {
       tests: $('bt-tests').value,
@@ -99,12 +101,12 @@ async function backtest(){
         <article class="panel"><label>Media aleatoria</label><strong>${fmt(randomMean)}</strong></article>
         <article class="panel"><label>Diferencia híbrido vs. aleatorio</label><strong>${fmt(meanDifference)}</strong></article>
       </div>
-      <p>IC aproximado 95% de la diferencia híbrida: ${hybridCI}</p>
+      <p>IC HAC aproximado 95% de la diferencia híbrida: ${hybridCI}</p>
       <div class="notice">${r.warning || 'Evaluación walk-forward completada.'} Presupuesto de candidatos por familia: ${r.candidateBudget ?? '—'}.</div>
       <h3>Comparación de las cuatro estrategias</h3>
       <div class="tablewrap"><table>
-        <thead><tr><th>Estrategia</th><th>Media aciertos</th><th>Diferencia vs. aleatorio</th><th>IC 95% diferencia</th><th>Distribución (aciertos: sorteos)</th><th>Lectura</th></tr></thead>
-        <tbody>${strategyRows || '<tr><td colspan="6">El backend no devolvió strategyStats. Publica la versión 2.2.0 del Apps Script.</td></tr>'}</tbody>
+        <thead><tr><th>Estrategia</th><th>Media aciertos</th><th>Diferencia vs. aleatorio</th><th>IC HAC 95% diferencia</th><th>Distribución (aciertos: sorteos)</th><th>Lectura</th></tr></thead>
+        <tbody>${strategyRows || '<tr><td colspan="6">El backend no devolvió strategyStats. Publica la versión 2.4.0 del Apps Script.</td></tr>'}</tbody>
       </table></div>
       <h3>Últimos 30 concursos evaluados</h3>
       <div class="tablewrap"><table>
@@ -113,7 +115,44 @@ async function backtest(){
       </table></div>`;
   } catch(e) {
     toast(e.message, true);
+  } finally {
+    btn.disabled=false; btn.textContent=oldText;
   }
+}
+async function runValidationLab(){
+  const btn=$('validation-run'), target=$('validation-result');
+  const old=btn.textContent; btn.disabled=true; btn.textContent='Ejecutando 4 ventanas…';
+  target.innerHTML='<div class="notice">La evaluación está en proceso. Mantén esta pestaña abierta; el resultado aparecerá al terminar.</div>';
+  const started=Date.now();
+  try{
+    const r=await api('validationLab',{tests:$('vl-tests').value,seed:$('vl-seed').value});
+    const labels={random:'Aleatorio uniforme',frequency:'Frecuencia ponderada',balanced:'Balanceado',hybrid:'Híbrido'};
+    const fmt=v=>Number.isFinite(Number(v))?Number(v).toFixed(4):'—';
+    const ci=s=>s&&s.ci95?`${fmt(s.ci95.low)} a ${fmt(s.ci95.high)}`:'—';
+    const rows=[];
+    (r.results||[]).forEach(w=>{
+      Object.keys(labels).forEach(k=>{
+        const s=w.strategyStats?.[k]||{};
+        const baseline=k==='random';
+        const sig=!baseline&&Number(s.pValueHolm)<0.05&&Number(s.ci95?.low)>0;
+        const verdict=baseline?'Control':(sig?'Evidencia positiva exploratoria':(Number(s.difference)>0?'Mejor promedio, no concluyente':(Number(s.difference)<0?'Por debajo del control':'Sin diferencia')));
+        rows.push(`<tr><td>${w.window}</td><td>${w.fromContest??'—'}–${w.toContest??'—'}</td><td>${labels[k]}</td><td>${fmt(s.mean)}</td><td>${baseline?'0.0000':fmt(s.difference)}</td><td>${baseline?'—':ci(s)}</td><td>${baseline?'—':fmt(s.pValueHolm)}</td><td>${baseline?'—':`${s.wins??0} / ${s.ties??0} / ${s.losses??0}`}</td><td>${verdict}</td></tr>`);
+      });
+    });
+    target.innerHTML=`<div class="kpis"><article class="panel"><label>Pruebas por ventana</label><strong>${r.testsPerWindow}</strong></article><article class="panel"><label>Ventanas evaluadas</label><strong>${r.results?.length||0}</strong></article><article class="panel"><label>Duración</label><strong>${((r.elapsedMs||Date.now()-started)/1000).toFixed(1)} s</strong></article><article class="panel"><label>ID del experimento</label><strong style="font-size:.8rem;overflow-wrap:anywhere">${r.id||'—'}</strong></article></div>
+      <div class="notice">${r.interpretation||''}<br><small>${r.warning||''}</small></div>
+      <h3>Resultados por ventana y estrategia</h3><p class="muted">Diferencia = estrategia menos aleatorio. IC HAC = intervalo de confianza con corrección por dependencia temporal. p Holm = valor p ajustado por comparaciones múltiples. W/T/L = victorias/empates/derrotas frente al control.</p>
+      <div class="tablewrap"><table><thead><tr><th>Ventana</th><th>Concursos evaluados</th><th>Estrategia</th><th>Media</th><th>Diferencia</th><th>IC HAC 95%</th><th>p Holm</th><th>W/T/L</th><th>Lectura</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>
+      <p class="muted">Metodología: ${r.methodology||''}</p>`;
+    toast('Laboratorio completado. ID: '+r.id);
+  }catch(e){target.innerHTML=`<div class="notice error">No se pudo completar el laboratorio: ${e.message}</div>`;toast(e.message,true);}
+  finally{btn.disabled=false;btn.textContent=old;}
+}
+async function loadValidationHistory(){
+  try{
+    const r=await api('validationHistory',{limit:20});
+    $('validation-history-result').innerHTML=`<h3>Historial de validaciones</h3><div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Usuario</th><th>Semilla</th><th>Pruebas/ventana</th><th>Ventanas</th><th>Conclusión</th></tr></thead><tbody>${(r.items||[]).map(x=>`<tr><td>${x.createdAt}</td><td>${x.username}</td><td>${x.seed}</td><td>${x.testsPerWindow}</td><td>${x.windows}</td><td>${x.interpretation||''}</td></tr>`).join('')}</tbody></table></div>`;
+  }catch(e){toast(e.message,true);}
 }
 async function runML(){
   const base=$('ml-url').value.trim().replace(/\/$/,'');
@@ -145,7 +184,7 @@ $('logout').onclick=async()=>{try{await api('logout');}catch(e){}token='';sessio
 $('nav').addEventListener('click',e=>{const b=e.target.closest('[data-view]');if(b)nav(b.dataset.view);});
 document.querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>nav(b.dataset.goto));
 $('hist-load').onclick=loadHistory;$('freq-window').onchange=loadAnalytics;$('relation-type').onchange=loadRelations;
-$('generate').onclick=generate;$('generations-load').onclick=loadGenerations;$('simulate').onclick=simulate;$('backtest').onclick=backtest;$('follow-save').onclick=saveFollow;
+$('generate').onclick=generate;$('generations-load').onclick=loadGenerations;$('simulate').onclick=simulate;$('backtest').onclick=backtest;$('validation-run').onclick=runValidationLab;$('validation-history').onclick=loadValidationHistory;$('follow-save').onclick=saveFollow;
 $('csv-import').onclick=importCsv;$('user-create').onclick=createUser;$('users-refresh').onclick=loadAdmin;$('audit-refresh').onclick=loadAudit;
 document.querySelectorAll('[data-export]').forEach(b=>b.onclick=()=>exportCsv(b.dataset.export));
 boot();
