@@ -122,7 +122,8 @@ async function backtest(){
 async function runValidationLab(){
   const btn=$('validation-run'), target=$('validation-result');
   const old=btn.textContent; btn.disabled=true; btn.textContent='Ejecutando 4 ventanas…';
-  target.innerHTML='<div class="notice">La evaluación está en proceso. Mantén esta pestaña abierta; el resultado aparecerá al terminar.</div>';
+  const requested=Number($('vl-tests').value)||200;
+  target.innerHTML=`<div class="notice">Evaluación en proceso: ${requested.toLocaleString('es-MX')} concursos objetivo por cada ventana de entrenamiento. Se ejecutan cuatro ventanas y se comparan las mismas fechas objetivo. Mantén esta pestaña abierta; no presiones el botón otra vez. La prueba de 1,000 puede tardar varios minutos.</div>`;
   const started=Date.now();
   try{
     const r=await api('validationLab',{tests:$('vl-tests').value,seed:$('vl-seed').value});
@@ -136,13 +137,13 @@ async function runValidationLab(){
         const baseline=k==='random';
         const sig=!baseline&&Number(s.pValueHolm)<0.05&&Number(s.ci95?.low)>0;
         const verdict=baseline?'Control':(sig?'Evidencia positiva exploratoria':(Number(s.difference)>0?'Mejor promedio, no concluyente':(Number(s.difference)<0?'Por debajo del control':'Sin diferencia')));
-        rows.push(`<tr><td>${w.window}</td><td>${w.fromContest??'—'}–${w.toContest??'—'}</td><td>${labels[k]}</td><td>${fmt(s.mean)}</td><td>${baseline?'0.0000':fmt(s.difference)}</td><td>${baseline?'—':ci(s)}</td><td>${baseline?'—':fmt(s.pValueHolm)}</td><td>${baseline?'—':`${s.wins??0} / ${s.ties??0} / ${s.losses??0}`}</td><td>${verdict}</td></tr>`);
+        rows.push(`<tr><td>${w.window}</td><td>${w.trainingFromContest??'—'}–${w.trainingToContest??'—'}</td><td>${w.fromContest??'—'}–${w.toContest??'—'}</td><td>${labels[k]}</td><td>${fmt(s.mean)}</td><td>${baseline?'0.0000':fmt(s.difference)}</td><td>${baseline?'—':ci(s)}</td><td>${baseline?'—':fmt(s.pValueHolm)}</td><td>${baseline?'—':`${s.wins??0} / ${s.ties??0} / ${s.losses??0}`}</td><td>${verdict}</td></tr>`);
       });
     });
     target.innerHTML=`<div class="kpis"><article class="panel"><label>Pruebas por ventana</label><strong>${r.testsPerWindow}</strong></article><article class="panel"><label>Ventanas evaluadas</label><strong>${r.results?.length||0}</strong></article><article class="panel"><label>Duración</label><strong>${((r.elapsedMs||Date.now()-started)/1000).toFixed(1)} s</strong></article><article class="panel"><label>ID del experimento</label><strong style="font-size:.8rem;overflow-wrap:anywhere">${r.id||'—'}</strong></article></div>
       <div class="notice">${r.interpretation||''}<br><small>${r.warning||''}</small></div>
       <h3>Resultados por ventana y estrategia</h3><p class="muted">Diferencia = estrategia menos aleatorio. IC HAC = intervalo de confianza con corrección por dependencia temporal. p Holm = valor p ajustado por comparaciones múltiples. W/T/L = victorias/empates/derrotas frente al control.</p>
-      <div class="tablewrap"><table><thead><tr><th>Ventana</th><th>Concursos evaluados</th><th>Estrategia</th><th>Media</th><th>Diferencia</th><th>IC HAC 95%</th><th>p Holm</th><th>W/T/L</th><th>Lectura</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>
+      <div class="tablewrap"><table><thead><tr><th>Ventana de entrenamiento</th><th>Rango de entrenamiento</th><th>Rango de prueba</th><th>Estrategia</th><th>Media</th><th>Diferencia</th><th>IC HAC 95%</th><th>p Holm</th><th>W/T/L</th><th>Lectura</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>
       <p class="muted">Metodología: ${r.methodology||''}</p>`;
     toast('Laboratorio completado. ID: '+r.id);
   }catch(e){target.innerHTML=`<div class="notice error">No se pudo completar el laboratorio: ${e.message}</div>`;toast(e.message,true);}
