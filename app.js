@@ -3,7 +3,7 @@ const $ = id => document.getElementById(id);
 const cfg = window.MLD_CONFIG || {};
 let token = sessionStorage.getItem('mld_token') || '';
 let currentUser = null, analyticsCache = null, lastGeneration = null;
-const titles={dashboard:'Dashboard',historico:'Histórico',frecuencias:'Frecuencias',relaciones:'Parejas y ternas',distribuciones:'Distribuciones',generador:'Generador',montecarlo:'Monte Carlo',backtesting:'Backtesting',ml:'ML experimental',seguimiento:'Seguimiento',administracion:'Administración'};
+const titles={dashboard:'Dashboard',historico:'Histórico',frecuencias:'Frecuencias',relaciones:'Parejas y ternas',distribuciones:'Distribuciones',generador:'Generador',montecarlo:'Monte Carlo',backtesting:'Backtesting',ml:'ML experimental',seguimiento:'Seguimiento',prospectiva:'Validación prospectiva',experimentos:'Centro de experimentos',administracion:'Administración'};
 function toast(msg,error=false){const el=$('toast');el.textContent=msg;el.classList.remove('hidden','error');if(error)el.classList.add('error');setTimeout(()=>el.classList.add('hidden'),5000);}
 async function api(action,data={}) {
   if(!cfg.API_URL || cfg.API_URL.includes('PEGA_AQUI')) throw new Error('Configura la URL del Web App en frontend/config.js.');
@@ -20,7 +20,7 @@ loadDashboard();}
 async function login(){ $('login-error').textContent='';try{const r=await api('login',{username:$('login-user').value,password:$('login-pass').value});token=r.token;sessionStorage.setItem('mld_token',token);showApp(r.user,!!r.mustChangePassword);}catch(e){$('login-error').textContent=e.message;}}
 async function boot(){if(!token){showLogin();return;}try{const r=await api('validateSession');showApp(r.user,!!r.mustChangePassword);}catch(e){token='';sessionStorage.removeItem('mld_token');showLogin();}}
 function nav(view){document.querySelectorAll('.view').forEach(x=>x.classList.add('hidden'));$('view-'+view).classList.remove('hidden');document.querySelectorAll('.nav').forEach(x=>x.classList.toggle('active',x.dataset.view===view));$('page-title').textContent=titles[view]||view;
-if(view==='historico')loadHistory();if(view==='frecuencias')loadAnalytics();if(view==='relaciones')loadRelations();if(view==='distribuciones')loadAnalytics();if(view==='seguimiento')loadFollowups();if(view==='administracion')loadAdmin();}
+if(view==='historico')loadHistory();if(view==='frecuencias')loadAnalytics();if(view==='relaciones')loadRelations();if(view==='distribuciones')loadAnalytics();if(view==='seguimiento')loadFollowups();if(view==='prospectiva')loadProspective();if(view==='experimentos')loadExperiments();if(view==='administracion')loadAdmin();}
 function balls(nums,additional){return `<div class="balls">${nums.map(n=>`<span class="ball">${n}</span>`).join('')}${additional?`<span class="ball additional">${additional}</span>`:''}</div>`;}
 function bars(el,items,max){$(el).innerHTML=items.map(x=>`<div class="bar-row"><b>${x.number}</b><div class="bar-track"><div class="bar-fill" style="width:${max?x.count/max*100:0}%"></div></div><span>${x.count}</span></div>`).join('');}
 async function loadDashboard(){try{const r=await api('dashboard');$('k-total').textContent=r.totalDraws.toLocaleString('es-MX');$('k-cohort').textContent=r.cohortDraws.toLocaleString('es-MX');$('k-latest').textContent=r.latest?.contest||'—';$('k-date').textContent=r.latest?.date||'—';$('k-expected').textContent=Number(r.expectedPerNumber).toFixed(1);bars('dash-top',r.top,Math.max(...r.top.map(x=>x.count)));bars('dash-bottom',r.bottom,Math.max(...r.bottom.map(x=>x.count)));
@@ -29,7 +29,7 @@ async function loadHistory(){try{const r=await api('draws',{from:$('hist-from').
 async function loadAnalytics(){try{analyticsCache=await api('analytics',{window:Number($('freq-window')?.value||0)});const f=analyticsCache.frequencies.slice().sort((a,b)=>a.number-b.number);$('freq-bars').innerHTML=f.map(x=>`<div class="freq-cell"><b>${x.number}</b><small>${x.count}</small></div>`).join('');$('freq-table').innerHTML=analyticsCache.frequencies.map(x=>`<tr><td>${x.number}</td><td>${x.count}</td><td>${x.expected.toFixed(1)}</td><td>${x.pct.toFixed(2)}%</td><td>${x.z.toFixed(2)}</td></tr>`).join('');const d=analyticsCache.distribution;$('sum-mean').textContent=d.sumMean.toFixed(2);$('sum-median').textContent=d.sumMedian;$('sum-min').textContent=d.sumMin;$('sum-max').textContent=d.sumMax;simpleBars('even-bars',d.evens.map((v,i)=>({label:i+' pares',count:v})));simpleBars('range-bars',Object.entries(d.ranges).map(([label,count])=>({label,count})));}catch(e){toast(e.message,true);}}
 function simpleBars(id,items){const max=Math.max(1,...items.map(x=>x.count));$(id).innerHTML=items.map(x=>`<div class="simple-row"><span>${x.label}</span><div class="bar-track"><div class="bar-fill" style="width:${x.count/max*100}%"></div></div><b>${x.count}</b></div>`).join('');}
 async function loadRelations(){try{const r=analyticsCache||await api('analytics');analyticsCache=r;const key=$('relation-type').value,items=key==='pairs'?r.topPairs:r.topTriples;$('relations-table').innerHTML=items.map(x=>`<tr><td>${x.group}</td><td>${x.count}</td><td>${x.expected.toFixed(2)}</td><td>${x.ratio.toFixed(2)}×</td></tr>`).join('');}catch(e){toast(e.message,true);}}
-async function generate(){try{const r=await api('generate',{quantity:$('gen-quantity').value,strategy:$('gen-strategy').value,window:$('gen-window').value,seed:$('gen-seed').value});lastGeneration=r;$('generated').innerHTML=r.combinations.map((x,i)=>`<div class="combo-card"><div class="combo-head"><span>COMBINACIÓN ${i+1}</span><b>Score ${x.score}</b></div><div class="combo-balls">${x.numbers.map(n=>`<span class="ball">${n}</span>`).join('')}</div><small>Frecuencia ${x.components.frequency} · Paridad ${x.components.parity} · Dispersión ${x.components.spread}</small></div>`).join('')+`<button id="save-gen" class="primary">Guardar generación</button><p class="muted">${r.caveat}</p>`;$('save-gen').onclick=async()=>{try{const s=await api('saveGeneration',{strategy:r.strategy,window:r.window,seed:r.seed,quantity:r.quantity,result:r});toast('Generación guardada. ID: '+s.id);}catch(e){toast(e.message,true);}};}catch(e){toast(e.message,true);}}
+async function generate(){try{const r=await api('generate',{quantity:$('gen-quantity').value,strategy:$('gen-strategy').value,window:$('gen-window').value,seed:$('gen-seed').value,maxOverlap:$('gen-overlap').value});lastGeneration=r;$('generated').innerHTML=r.combinations.map((x,i)=>`<div class="combo-card"><div class="combo-head"><span>COMBINACIÓN ${i+1}</span><b>Score ${x.score}</b></div><div class="combo-balls">${x.numbers.map(n=>`<span class="ball">${n}</span>`).join('')}</div><small>Frecuencia ${x.components.frequency} · Paridad ${x.components.parity} · Dispersión ${x.components.spread}</small></div>`).join('')+`<button id="save-gen" class="primary">Guardar generación</button><p class="muted">${r.caveat}</p>`;$('save-gen').onclick=async()=>{try{const s=await api('saveGeneration',{strategy:r.strategy,window:r.window,seed:r.seed,quantity:r.quantity,result:r});toast('Generación guardada. ID: '+s.id);}catch(e){toast(e.message,true);}};}catch(e){toast(e.message,true);}}
 async function loadGenerations(){
   try{
     const r=await api('getGenerations',{limit:50});
@@ -127,6 +127,7 @@ async function runValidationLab(){
   const started=Date.now();
   try{
     const r=await api('validationLab',{tests:$('vl-tests').value,seed:$('vl-seed').value});
+    await api('saveExperiment',{kind:'validationLab',config:{testsPerWindow:Number($('vl-tests').value),seed:Number($('vl-seed').value),windows:[100,250,500,1000]},result:r,fingerprint:String(r.id||''),notes:'Validación histórica V2.6.0; resultados exploratorios.'});
     const labels={random:'Aleatorio uniforme',frequency:'Frecuencia ponderada',balanced:'Balanceado',hybrid:'Híbrido'};
     const fmt=v=>Number.isFinite(Number(v))?Number(v).toFixed(4):'—';
     const ci=s=>s&&s.ci95?`${fmt(s.ci95.low)} a ${fmt(s.ci95.high)}`:'—';
@@ -155,8 +156,37 @@ async function loadValidationHistory(){
     $('validation-history-result').innerHTML=`<h3>Historial de validaciones</h3><div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Usuario</th><th>Semilla</th><th>Pruebas/ventana</th><th>Ventanas</th><th>Conclusión</th></tr></thead><tbody>${(r.items||[]).map(x=>`<tr><td>${x.createdAt}</td><td>${x.username}</td><td>${x.seed}</td><td>${x.testsPerWindow}</td><td>${x.windows}</td><td>${x.interpretation||''}</td></tr>`).join('')}</tbody></table></div>`;
   }catch(e){toast(e.message,true);}
 }
+function portfolioMetrics(combos){
+  const exposure=Array(57).fill(0),pairs={};let overlaps=[];
+  combos.forEach(c=>{const ns=c.numbers.slice().sort((x,y)=>x-y);ns.forEach(n=>exposure[n]++);for(let i=0;i<ns.length;i++)for(let j=i+1;j<ns.length;j++){const k=ns[i]+'-'+ns[j];pairs[k]=(pairs[k]||0)+1;}});
+  for(let i=0;i<combos.length;i++)for(let j=i+1;j<combos.length;j++)overlaps.push(combos[i].numbers.filter(n=>combos[j].numbers.includes(n)).length);
+  return {uniqueNumbers:exposure.filter(x=>x>0).length,pairCoverage:Object.keys(pairs).length,maxExposure:Math.max(0,...exposure),maxOverlap:Math.max(0,...overlaps),meanOverlap:overlaps.length?overlaps.reduce((a,b)=>a+b,0)/overlaps.length:0};
+}
+async function saveProspective(){
+  if(!lastGeneration){toast('Primero genera una combinación.',true);return;}
+  try{const r=await api('saveProspective',{targetContest:$('pros-contest').value,targetDate:$('pros-date').value,notes:$('pros-notes').value,result:lastGeneration});toast('Generación congelada. ID: '+r.id);loadProspective();}
+  catch(e){toast(e.message,true);}
+}
+async function loadProspective(){
+  try{const r=await api('getProspective');$('pros-list').innerHTML=`<table><thead><tr><th>Fecha registro</th><th>Concurso</th><th>Fecha objetivo</th><th>Estrategia</th><th>Combinaciones</th><th>Estado</th><th>Acción</th></tr></thead><tbody>${(r.items||[]).map(x=>`<tr><td>${x.createdAt}</td><td>${x.targetContest}</td><td>${x.targetDate}</td><td>${x.strategy}</td><td>${x.combinations.length}</td><td>${x.status}</td><td><button data-pros-eval="${x.id}" ${x.status==='EVALUATED'?'disabled':''}>Evaluar resultado</button> <button data-pros-view="${x.id}">Ver</button></td></tr>`).join('')}</tbody></table>`;
+    document.querySelectorAll('[data-pros-eval]').forEach(b=>b.onclick=async()=>{try{const x=await api('evaluateProspective',{id:b.dataset.prosEval});renderProspectiveEvaluation(x.evaluation);loadProspective();}catch(e){toast(e.message,true);}});
+    document.querySelectorAll('[data-pros-view]').forEach(b=>b.onclick=()=>{const x=r.items.find(y=>y.id===b.dataset.prosView);$('pros-detail').innerHTML=`<h3>Registro congelado · ${x.targetContest}</h3><p>Huella: ${x.fingerprint} · Semilla: ${x.seed} · Estado: ${x.status}</p><div class="combination-list">${x.combinations.map(c=>`<div class="combo-card">#${c.index} ${c.numbers.map(n=>`<span class="ball">${n}</span>`).join('')}</div>`).join('')}</div>`;if(x.evaluation)renderProspectiveEvaluation(x.evaluation);});
+  }catch(e){toast(e.message,true);}
+}
+function renderProspectiveEvaluation(e){$('pros-detail').innerHTML=`<article class="panel"><h3>Evaluación del concurso ${e.contest}</h3><div class="kpis"><article class="panel"><label>Combinaciones</label><strong>${e.combinationCount}</strong></article><article class="panel"><label>Promedio de aciertos</label><strong>${e.meanMainHits.toFixed(3)}</strong></article><article class="panel"><label>Máximo de aciertos</label><strong>${e.bestMainHits}</strong></article><article class="panel"><label>Acierto adicional</label><strong>${e.additionalMatches}</strong></article></div><p>Resultado oficial: ${e.officialNumbers.join(', ')} · Adicional: ${e.additional}</p><div class="tablewrap"><table><thead><tr><th>#</th><th>Combinación</th><th>Aciertos principales</th><th>Adicional</th></tr></thead><tbody>${e.results.map(x=>`<tr><td>${x.index}</td><td>${x.numbers.join(', ')}</td><td>${x.mainHits}</td><td>${x.additionalHit?'Sí':'No'}</td></tr>`).join('')}</tbody></table></div></article>`;}
+async function saveExperiment(){
+  if(!lastGeneration){toast('Primero genera una combinación.',true);return;}
+  try{const metrics=portfolioMetrics(lastGeneration.combinations);const config={strategy:lastGeneration.strategy,window:lastGeneration.window,seed:lastGeneration.seed,quantity:lastGeneration.quantity,maxOverlap:lastGeneration.maxOverlap};const r=await api('saveExperiment',{kind:'generation',config,result:{...lastGeneration,portfolioMetrics:metrics},fingerprint:lastGeneration.fingerprint,notes:'Generación guardada desde el frontend V2.6.0'});toast('Experimento guardado: '+r.id);loadExperiments();}
+  catch(e){toast(e.message,true);}
+}
+async function loadExperiments(){
+  try{const r=await api('getExperiments');$('exp-list').innerHTML=`<table><thead><tr><th>Fecha</th><th>Tipo</th><th>Versión</th><th>Huella</th><th>Parámetros</th><th>Detalle</th></tr></thead><tbody>${(r.items||[]).map((x,i)=>`<tr><td>${x.createdAt}</td><td>${x.kind}</td><td>${x.version}</td><td>${x.fingerprint}</td><td>${JSON.stringify(x.config||{})}</td><td><button data-exp-view="${i}">Ver métricas</button></td></tr>`).join('')}</tbody></table><div id="exp-detail"></div>`;document.querySelectorAll('[data-exp-view]').forEach(b=>b.onclick=()=>{const x=r.items[Number(b.dataset.expView)],m=x.result?.portfolioMetrics||{};$('exp-detail').innerHTML=`<article class="panel"><h3>Experimento ${x.id}</h3><p>Huella ${x.fingerprint} · ${x.version}</p><p>Números únicos: ${m.uniqueNumbers??'—'} · Parejas cubiertas: ${m.pairCoverage??'—'} · Exposición máxima: ${m.maxExposure??'—'} · Solapamiento máximo: ${m.maxOverlap??'—'} · Solapamiento medio: ${Number(m.meanOverlap||0).toFixed(2)}</p></article>`;});}
+  catch(e){toast(e.message,true);}
+}
+
 async function runML(){
-  const base=$('ml-url').value.trim().replace(/\/$/,'');
+  const base=$('ml-url').value.trim().replace(/\/$/,'') || String(cfg.ML_API_URL||'').trim().replace(/\/$/,'');
+  if(!base){toast('El motor ML es opcional y no está configurado. Los demás módulos funcionan sin él.',true);return;}
   try{
     const r=await fetch(base+'/ml/benchmark',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({tests:Number($('ml-tests').value),window:Number($('ml-window').value),seed:Number($('ml-seed').value)})});
@@ -185,7 +215,7 @@ $('logout').onclick=async()=>{try{await api('logout');}catch(e){}token='';sessio
 $('nav').addEventListener('click',e=>{const b=e.target.closest('[data-view]');if(b)nav(b.dataset.view);});
 document.querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>nav(b.dataset.goto));
 $('hist-load').onclick=loadHistory;$('freq-window').onchange=loadAnalytics;$('relation-type').onchange=loadRelations;
-$('generate').onclick=generate;$('generations-load').onclick=loadGenerations;$('simulate').onclick=simulate;$('backtest').onclick=backtest;$('validation-run').onclick=runValidationLab;$('validation-history').onclick=loadValidationHistory;$('follow-save').onclick=saveFollow;
+$('generate').onclick=generate;$('generations-load').onclick=loadGenerations;$('simulate').onclick=simulate;$('backtest').onclick=backtest;$('validation-run').onclick=runValidationLab;$('validation-history').onclick=loadValidationHistory;$('follow-save').onclick=saveFollow;$('pros-save').onclick=saveProspective;$('pros-refresh').onclick=loadProspective;$('exp-save-generation').onclick=saveExperiment;$('exp-refresh').onclick=loadExperiments;
 $('csv-import').onclick=importCsv;$('user-create').onclick=createUser;$('users-refresh').onclick=loadAdmin;$('audit-refresh').onclick=loadAudit;
 document.querySelectorAll('[data-export]').forEach(b=>b.onclick=()=>exportCsv(b.dataset.export));
 boot();
